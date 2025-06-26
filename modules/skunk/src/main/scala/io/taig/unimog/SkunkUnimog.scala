@@ -17,7 +17,7 @@ final class SkunkUnimog[F[_]: MonadCancelThrow: Temporal](sessions: Resource[F, 
 ) extends Unimog[F]:
   override def publish(message: Message): F[Unit] = sessions.use(MessageSqlDao.create(message)).void
 
-  override def subscribe(block: Int, stale: FiniteDuration): Stream[F, Acknowledgable[F, Message]] = Stream
+  override def subscribeAck(block: Int, stale: FiniteDuration): Stream[F, Acknowledgable[F, Message]] = Stream
     .repeatEval(next(block, stale))
     .flatMap:
       case Nil      => Stream.sleep_(poll)

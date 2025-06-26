@@ -7,6 +7,7 @@ import cats.syntax.all.*
 import fs2.Stream
 
 import scala.concurrent.duration.FiniteDuration
+import cats.Apply
 
 abstract class Unimog[F[_]]:
   def publish(message: Message): F[Unit]
@@ -18,4 +19,7 @@ abstract class Unimog[F[_]]:
     _ <- publish(message)
   yield message
 
-  def subscribe(block: Int, stale: FiniteDuration): Stream[F, Acknowledgable[F, Message]]
+  def subscribeAck(block: Int, stale: FiniteDuration): Stream[F, Acknowledgable[F, Message]]
+
+  final def subscribe[A](block: Int, stale: FiniteDuration)(f: Message => F[A])(using Apply[F]): Stream[F, A] =
+    subscribeAck(block, stale).evalMap(message => f(message.value) <* message.ack)
