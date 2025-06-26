@@ -1,22 +1,29 @@
 package io.taig.unimog
 
+import cats.Applicative
+import cats.Apply
 import cats.Monad
+import cats.data.NonEmptyList
 import cats.effect.Clock
 import cats.effect.std.UUIDGen
 import cats.syntax.all.*
 import fs2.Stream
 
 import scala.concurrent.duration.FiniteDuration
-import cats.Apply
 
 abstract class Unimog[F[_]]:
-  def publish(message: Message): F[Unit]
+  def publish(messages: NonEmptyList[Message]): F[Unit]
 
-  final def publish(payload: String)(using clock: Clock[F], uuids: UUIDGen[F])(using Monad[F]): F[Message] = for
+  final def publish(messages: List[Message])(using F: Applicative[F]): F[Unit] =
+    NonEmptyList.fromList(messages).fold(F.unit)(publish)
+
+  final def publish1(message: Message)(using Applicative[F]): F[Unit] = publish(messages = List(message))
+
+  final def publish1(payload: String)(using clock: Clock[F], uuids: UUIDGen[F])(using Monad[F]): F[Message] = for
     now <- realTimeInstant[F]
     identifier <- uuids.randomUUID
     message = Message(created = now, identifier, payload)
-    _ <- publish(message)
+    _ <- publish1(message)
   yield message
 
   def subscribeAck(block: Int, stale: FiniteDuration): Stream[F, Acknowledgable[F, Message]]

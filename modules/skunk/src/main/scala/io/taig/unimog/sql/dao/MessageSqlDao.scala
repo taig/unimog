@@ -1,9 +1,11 @@
 package io.taig.unimog.sql.dao
+import cats.data.NonEmptyList
 import fs2.Stream
 import io.taig.unimog.Message
 import io.taig.unimog.sql.query.MessageSqlQuery
 import io.taig.unimog.sql.schema.MessageSqlSchema
 import skunk.Session
+import skunk.Void
 import skunk.data.Completion
 
 import java.time.Instant
@@ -11,8 +13,8 @@ import java.util.UUID
 import scala.concurrent.duration.FiniteDuration
 
 private[unimog] object MessageSqlDao:
-  def create[F[_]](message: Message): Session[F] => F[Completion] =
-    _.execute(MessageSqlQuery.insert)(MessageSqlSchema(message))
+  def create[F[_]](messages: NonEmptyList[Message]): Session[F] => F[Completion] =
+    _.execute[Void](MessageSqlQuery.insert(messages.map(MessageSqlSchema.apply)))(Void)
 
   def delete[F[_]](identifier: UUID): Session[F] => F[Completion] =
     _.execute(MessageSqlQuery.deleteByIdentifier)(identifier)

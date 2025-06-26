@@ -1,5 +1,6 @@
 package io.taig.unimog
 
+import cats.data.NonEmptyList
 import cats.effect.MonadCancelThrow
 import cats.effect.Resource
 import cats.effect.Temporal
@@ -12,10 +13,10 @@ import skunk.Session
 import java.util.UUID
 import scala.concurrent.duration.*
 
-final class SkunkUnimog[F[_]: MonadCancelThrow: Temporal](sessions: Resource[F, Session[F]])(poll: FiniteDuration)(using
-    Clock[F]
+final class SkunkUnimog[F[_]: MonadCancelThrow: Temporal: Clock](sessions: Resource[F, Session[F]])(
+    poll: FiniteDuration
 ) extends Unimog[F]:
-  override def publish(message: Message): F[Unit] = sessions.use(MessageSqlDao.create(message)).void
+  override def publish(messages: NonEmptyList[Message]): F[Unit] = sessions.use(MessageSqlDao.create(messages)).void
 
   override def subscribeAck(block: Int, stale: FiniteDuration): Stream[F, Acknowledgable[F, Message]] = Stream
     .repeatEval(next(block, stale))
@@ -29,3 +30,9 @@ final class SkunkUnimog[F[_]: MonadCancelThrow: Temporal](sessions: Resource[F, 
   def next(block: Int, stale: FiniteDuration): F[List[Message]] = sessions.use: sx =>
     realTimeInstant.flatMap: now =>
       MessageSqlDao.list(limit = block, stale)(now)(sx).compile.toList
+
+object SkunkUnimog:
+  def apply[F[_]: MonadCancelThrow: Temporal: Clock](sessions: Resource[F, Session[F]])(
+      poll: FiniteDuration
+  ): Unimog[F] =
+    new SkunkUnimog[F](sessions)(poll)
