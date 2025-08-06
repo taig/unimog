@@ -2,7 +2,7 @@ import sbtcrossproject.CrossProject
 
 val Version = new {
   val Cats = "2.13.0"
-  val CatsEffect = "3.6.1"
+  val CatsEffect = "3.6.3"
   val CatsTime = "0.5.1"
   val Cron4s = "0.8.2"
   val CronUtils = "9.2.1"
