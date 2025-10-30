@@ -13,7 +13,7 @@ val Version = new {
   val Scala = "3.3.7"
   val ScalaJavaTime = "2.6.0"
   val Slf4j = "2.0.17"
-  val Skunk = "1.0.0-M11"
+  val Skunk = "1.0.0-M12"
   val Testcontainers = "1.20.6"
 }
 
