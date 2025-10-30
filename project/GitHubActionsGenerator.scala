@@ -5,7 +5,7 @@ object GitHubActionsGenerator {
   object Step {
     val SetupJava: Json = Json.obj(
       "name" := "Setup Java",
-      "uses" := "actions/setup-java@v4",
+      "uses" := "actions/setup-java@v5",
       "with" := Json.obj(
         "cache" := "sbt",
         "distribution" := "temurin",
@@ -20,7 +20,7 @@ object GitHubActionsGenerator {
 
     val Checkout: Json = Json.obj(
       "name" := "Checkout",
-      "uses" := "actions/checkout@v4",
+      "uses" := "actions/checkout@v5",
       "with" := Json.obj(
         "fetch-depth" := 0
       )

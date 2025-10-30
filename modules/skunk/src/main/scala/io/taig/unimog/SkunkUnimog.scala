@@ -32,5 +32,4 @@ final class SkunkUnimog[F[_]: Temporal](sessions: Resource[F, Session[F]])(
 object SkunkUnimog:
   def apply[F[_]: Temporal](sessions: Resource[F, Session[F]])(
       poll: FiniteDuration
-  ): Unimog[F] =
-    new SkunkUnimog[F](sessions)(poll)
+  ): Unimog[F] = new SkunkUnimog[F](sessions)(poll)
