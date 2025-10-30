@@ -1,10 +1,8 @@
 package io.taig.unimog
 
 import cats.data.NonEmptyList
-import cats.effect.MonadCancelThrow
 import cats.effect.Resource
 import cats.effect.Temporal
-import cats.effect.kernel.Clock
 import cats.syntax.all.*
 import fs2.Stream
 import io.taig.unimog.sql.dao.MessageSqlDao
@@ -13,7 +11,7 @@ import skunk.Session
 import java.util.UUID
 import scala.concurrent.duration.*
 
-final class SkunkUnimog[F[_]: MonadCancelThrow: Temporal: Clock](sessions: Resource[F, Session[F]])(
+final class SkunkUnimog[F[_]: Temporal](sessions: Resource[F, Session[F]])(
     poll: FiniteDuration
 ) extends Unimog[F]:
   override def publish(messages: NonEmptyList[Message]): F[Unit] = sessions.use(MessageSqlDao.create(messages)).void
@@ -32,7 +30,7 @@ final class SkunkUnimog[F[_]: MonadCancelThrow: Temporal: Clock](sessions: Resou
       MessageSqlDao.list(limit = block, stale)(now)(sx).compile.toList
 
 object SkunkUnimog:
-  def apply[F[_]: MonadCancelThrow: Temporal: Clock](sessions: Resource[F, Session[F]])(
+  def apply[F[_]: Temporal](sessions: Resource[F, Session[F]])(
       poll: FiniteDuration
   ): Unimog[F] =
     new SkunkUnimog[F](sessions)(poll)
