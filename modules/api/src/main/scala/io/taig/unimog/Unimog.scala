@@ -19,9 +19,9 @@ abstract class Unimog[F[_]]:
 
   final def publish1(message: Message)(using Applicative[F]): F[Unit] = publish(messages = List(message))
 
-  final def publish1(payload: String)(using clock: Clock[F], uuids: UUIDGen[F])(using Monad[F]): F[Message] = for
+  final def publish1(payload: String)(using Clock[F], UUIDGen[F])(using Monad[F]): F[Message] = for
     now <- realTimeInstant[F]
-    identifier <- uuids.randomUUID
+    identifier <- UUIDGen.randomUUID
     message = Message(created = now, identifier, payload)
     _ <- publish1(message)
   yield message
