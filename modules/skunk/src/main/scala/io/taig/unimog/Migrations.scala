@@ -1,14 +1,16 @@
 package io.taig.unimog
 
 object Migrations:
-  val _1: Migration = Migration(
-    name = "initial",
-    sql = """CREATE TABLE "message" (
-            |  "identifier" UUID PRIMARY KEY,
-            |  "created" TIMESTAMPTZ NOT NULL,
-            |  "payload" TEXT NOT NULL,
-            |  "pending" TIMESTAMPTZ NULL
-            |);""".stripMargin
+  def _1(schema: String): Migration = Migration(
+    name = "Initial",
+    sql = s"""CREATE SCHEMA IF NOT EXISTS "$schema";
+             |
+             |CREATE TABLE "message" (
+             |  "identifier" UUID PRIMARY KEY,
+             |  "created" TIMESTAMPTZ NOT NULL,
+             |  "payload" TEXT NOT NULL,
+             |  "pending" TIMESTAMPTZ NULL
+             |);""".stripMargin
   )
 
-  val All: List[Migration] = List(_1)
+  def all(schema: String): List[Migration] = List(_1(schema))
