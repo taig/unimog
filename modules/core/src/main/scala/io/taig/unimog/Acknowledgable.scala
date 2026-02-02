@@ -4,12 +4,11 @@ import cats.Applicative
 import cats.Eval
 import cats.Traverse
 import cats.syntax.all.*
-import cats.~>
 
 final case class Acknowledgable[F[_], A](ack: F[Unit], value: A):
   def map[B](f: A => B): Acknowledgable[F, B] = copy(value = f(value))
 
-  def mapK[G[_]](fK: F ~> G): Acknowledgable[G, A] = copy(ack = fK(ack))
+  def mapK[G[_]](fK: [A] => F[A] => G[A]): Acknowledgable[G, A] = copy(ack = fK(ack))
 
 object Acknowledgable:
   given [F[_]]: Traverse[Acknowledgable[F, *]] with

@@ -3,6 +3,7 @@ package io.taig.unimog
 import cats.Applicative
 import cats.Apply
 import cats.Monad
+import cats.arrow.FunctionK
 import cats.data.NonEmptyList
 import cats.effect.Clock
 import cats.effect.std.UUIDGen
@@ -12,6 +13,8 @@ import fs2.Stream
 import scala.concurrent.duration.FiniteDuration
 
 abstract class Unimog[F[_]]:
+  self =>
+
   def publish(messages: NonEmptyList[Message]): F[Unit]
 
   final def publish(messages: List[Message])(using F: Applicative[F]): F[Unit] =
@@ -30,3 +33,12 @@ abstract class Unimog[F[_]]:
 
   final def subscribe[A](block: Int, stale: FiniteDuration)(f: Message => F[A])(using Apply[F]): Stream[F, A] =
     subscribeAck(block, stale).evalMap(message => f(message.value) <* message.ack)
+
+  final def mapK[G[_]](fK: [A] => F[A] => G[A]): Unimog[G] = new Unimog[G]:
+    override def publish(messages: NonEmptyList[Message]): G[Unit] = fK(self.publish(messages))
+
+    override def subscribeAck(
+        block: Int,
+        stale: FiniteDuration
+    ): Stream[G, Acknowledgable[G, Message]] =
+      self.subscribeAck(block, stale).map(_.mapK(fK)).translate(FunctionK.lift[F, G](fK))
