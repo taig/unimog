@@ -13,7 +13,10 @@ final class Migrations(payloadType: String, schema: String):
              |  "lifespan" INTERVAL NOT NULL,
              |  "payload" $payloadType NOT NULL,
              |  "started" TIMESTAMP NULL
-             |);""".stripMargin
+             |);
+             |
+             |CREATE INDEX ON "$schema"."message" ("created" ASC) WHERE "started" IS NULL;
+             |CREATE INDEX ON "$schema"."message" ("expiration" ASC, "created" ASC) WHERE "started" IS NOT NULL;""".stripMargin
   )
 
   val all: List[Migration] = List(_1)
