@@ -1,14 +1,14 @@
 package io.taig.unimog.sql.schema
 
+import cats.syntax.all.*
 import io.taig.unimog.Message
 import io.taig.unimog.sql.codecs.*
 import skunk.Codec
 import skunk.codec.all.*
 
+import java.time.Duration
 import java.time.Instant
 import java.util.UUID
-import java.time.Duration
-import cats.syntax.all.*
 
 final private[unimog] case class MessageSqlSchema[A](
     completed: Option[Instant],

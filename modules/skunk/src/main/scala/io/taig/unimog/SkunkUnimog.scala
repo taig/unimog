@@ -3,11 +3,11 @@ package io.taig.unimog
 import cats.data.Kleisli
 import cats.effect.Resource
 import cats.effect.Temporal
+import skunk.Codec
 import skunk.Session
 
 import scala.annotation.nowarn
 import scala.concurrent.duration.*
-import skunk.Codec
 
 object SkunkUnimog:
   @nowarn("msg=unused")

@@ -11,9 +11,16 @@ import cats.syntax.all.*
 import fs2.Stream
 
 import java.time.Duration
+import java.time.Instant
+import java.util.UUID
 
 abstract class Unimog[F[_], A]:
   self =>
+
+  def find(identifier: UUID, now: Instant): F[Option[Message[A]]]
+
+  final def find(identifier: UUID)(using Monad[F], Clock[F]): F[Option[Message[A]]] =
+    realTimeInstant.flatMap(find(identifier, _))
 
   def publish(messages: NonEmptyList[Message.Create[A]]): F[Unit]
 
@@ -23,8 +30,8 @@ abstract class Unimog[F[_], A]:
   final def publish1(message: Message.Create[A])(using Applicative[F]): F[Unit] = publish(messages = List(message))
 
   final def publish1(payload: A, lifespan: Duration = Duration.ofSeconds(30))(using
-      Clock[F],
       Monad[F],
+      Clock[F],
       UUIDGen[F]
   ): F[Message[A]] = for
     now <- realTimeInstant[F]
@@ -39,6 +46,8 @@ abstract class Unimog[F[_], A]:
     subscribeAck(chunk).evalMap(message => f(message.value) <* message.ack)
 
   final def mapK[G[_]](fK: [A] => F[A] => G[A]): Unimog[G, A] = new Unimog[G, A]:
+    override def find(identifier: UUID, now: Instant): G[Option[Message[A]]] = fK(self.find(identifier, now))
+
     override def publish(messages: NonEmptyList[Message.Create[A]]): G[Unit] = fK(self.publish(messages))
 
     override def subscribeAck(chunk: Int): Stream[G, Acknowledgable[G, Message[A]]] =

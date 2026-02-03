@@ -6,14 +6,18 @@ import cats.effect.Temporal
 import cats.syntax.all.*
 import fs2.Stream
 import io.taig.unimog.sql.dao.MessageSqlDao
+import skunk.Codec
 import skunk.Session
 
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.*
-import skunk.Codec
 
 final class SkunkTransactionalUnimog[F[_]: Temporal, A](message: MessageSqlDao[F, A])(poll: FiniteDuration)
     extends Unimog[Kleisli[F, Session[F], *], A]:
+  override def find(identifier: UUID, now: Instant): Kleisli[F, Session[F], Option[Message[A]]] =
+    Kleisli(message.find(identifier, now))
+
   override def publish(messages: NonEmptyList[Message.Create[A]]): Kleisli[F, Session[F], Unit] =
     Kleisli(message.create(messages)(_).void)
 
@@ -30,7 +34,7 @@ final class SkunkTransactionalUnimog[F[_]: Temporal, A](message: MessageSqlDao[F
     realTimeInstant.flatMap(message.update(identifier, _)(session).void)
 
   def next(chunk: Int): Kleisli[F, Session[F], List[Message[A]]] = Kleisli: session =>
-    realTimeInstant.flatMap(now => message.list(limit = chunk)(now)(session).compile.toList)
+    realTimeInstant.flatMap(now => message.list(limit = chunk, now)(session).compile.toList)
 
 object SkunkTransactionalUnimog:
   def apply[F[_]: Temporal, A](

@@ -3,6 +3,7 @@ package io.taig.unimog.sql.query
 import cats.data.NonEmptyList
 import io.taig.unimog.sql.codecs.*
 import io.taig.unimog.sql.schema.MessageSqlSchema
+import skunk.Codec
 import skunk.Command
 import skunk.Query
 import skunk.Void
@@ -11,7 +12,6 @@ import skunk.syntax.all.*
 
 import java.time.Instant
 import java.util.UUID
-import skunk.Codec
 
 final private[unimog] class MessageSqlQuery[A](payload: Codec[A], schema: String):
   def insert(schemas: NonEmptyList[MessageSqlSchema[A]]): Command[Void] =
@@ -38,6 +38,13 @@ final private[unimog] class MessageSqlQuery[A](payload: Codec[A], schema: String
     WHERE "#$schema"."message"."identifier" = "result"."identifier"
     RETURNING "result".*
     """.query(MessageSqlSchema.codec(payload)).contramap(instant => (instant, instant))
+
+  val selectByIdentifier: Query[UUID, MessageSqlSchema[A]] =
+    sql"""
+    SELECT "completed", "created", "identifier", "lifespan", "payload", "started"
+    FROM "#$schema"."message"
+    WHERE "identifier" = $uuid;
+    """.query(MessageSqlSchema.codec(payload))
 
   val updateCompletedByIdentifier: Command[(Instant, UUID)] =
     sql"""

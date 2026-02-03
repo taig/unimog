@@ -1,8 +1,8 @@
 package io.taig.unimog
 
+import java.time.Duration
 import java.time.Instant
 import java.util.UUID
-import java.time.Duration
 
 final case class Message[A](created: Instant, identifier: UUID, lifespan: Duration, payload: A, status: Message.Status):
   def completed: Option[Instant] =
