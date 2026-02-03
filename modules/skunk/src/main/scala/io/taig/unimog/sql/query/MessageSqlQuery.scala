@@ -12,17 +12,18 @@ import skunk.syntax.all.*
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.FiniteDuration
+import skunk.Codec
 
-final private[unimog] class MessageSqlQuery(schema: String):
-  def insert(schemas: NonEmptyList[MessageSqlSchema]): Command[Void] =
+final private[unimog] class MessageSqlQuery[A](payload: Codec[A], schema: String):
+  def insert(schemas: NonEmptyList[MessageSqlSchema[A]]): Command[Void] =
     val values = schemas.toList
 
     sql"""
     INSERT INTO "#$schema"."message" ("created", "identifier", "payload", "pending")
-    VALUES ${MessageSqlSchema.codec.values.list(values)};
+    VALUES ${MessageSqlSchema.codec(payload).values.list(values)};
     """.command.contramap(_ => values)
 
-  def select(limit: Int, stale: FiniteDuration): Query[Instant, MessageSqlSchema] =
+  def select(limit: Int, stale: FiniteDuration): Query[Instant, MessageSqlSchema[A]] =
     sql"""
     WITH "result" AS (
       SELECT "created", "identifier", "payload", "pending"
@@ -37,7 +38,7 @@ final private[unimog] class MessageSqlQuery(schema: String):
     FROM "result"
     WHERE "#$schema"."message"."identifier" = "result"."identifier"
     RETURNING "result".*
-    """.query(MessageSqlSchema.codec).contramap(instant => (instant, instant))
+    """.query(MessageSqlSchema.codec(payload)).contramap(instant => (instant, instant))
 
   val deleteByIdentifier: Command[UUID] =
     sql"""DELETE FROM "#$schema"."message" WHERE "identifier" = $uuid;""".command

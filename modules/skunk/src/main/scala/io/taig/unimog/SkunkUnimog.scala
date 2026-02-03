@@ -7,11 +7,13 @@ import skunk.Session
 
 import scala.annotation.nowarn
 import scala.concurrent.duration.*
+import skunk.Codec
 
 object SkunkUnimog:
   @nowarn("msg=unused")
-  def apply[F[_]: Temporal](sessions: Resource[F, Session[F]])(
+  def apply[F[_]: Temporal, A](sessions: Resource[F, Session[F]])(
+      payload: Codec[A],
       poll: FiniteDuration,
       schema: String
-  ): Unimog[F] = SkunkTransactionalUnimog[F](poll, schema)
+  ): Unimog[F, A] = SkunkTransactionalUnimog[F, A](payload, poll, schema)
     .mapK([A] => (fa: Kleisli[F, Session[F], A]) => sessions.use(fa.run))

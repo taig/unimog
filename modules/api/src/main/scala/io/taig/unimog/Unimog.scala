@@ -12,33 +12,33 @@ import fs2.Stream
 
 import scala.concurrent.duration.FiniteDuration
 
-abstract class Unimog[F[_]]:
+abstract class Unimog[F[_], A]:
   self =>
 
-  def publish(messages: NonEmptyList[Message]): F[Unit]
+  def publish(messages: NonEmptyList[Message[A]]): F[Unit]
 
-  final def publish(messages: List[Message])(using F: Applicative[F]): F[Unit] =
+  final def publish(messages: List[Message[A]])(using F: Applicative[F]): F[Unit] =
     NonEmptyList.fromList(messages).fold(F.unit)(publish)
 
-  final def publish1(message: Message)(using Applicative[F]): F[Unit] = publish(messages = List(message))
+  final def publish1(message: Message[A])(using Applicative[F]): F[Unit] = publish(messages = List(message))
 
-  final def publish1(payload: String)(using Clock[F], UUIDGen[F])(using Monad[F]): F[Message] = for
+  final def publish1(payload: A)(using Clock[F], UUIDGen[F])(using Monad[F]): F[Message[A]] = for
     now <- realTimeInstant[F]
     identifier <- UUIDGen.randomUUID
     message = Message(created = now, identifier, payload)
     _ <- publish1(message)
   yield message
 
-  def subscribeAck(block: Int, stale: FiniteDuration): Stream[F, Acknowledgable[F, Message]]
+  def subscribeAck(block: Int, stale: FiniteDuration): Stream[F, Acknowledgable[F, Message[A]]]
 
-  final def subscribe[A](block: Int, stale: FiniteDuration)(f: Message => F[A])(using Apply[F]): Stream[F, A] =
+  final def subscribe[B](block: Int, stale: FiniteDuration)(f: Message[A] => F[B])(using Apply[F]): Stream[F, B] =
     subscribeAck(block, stale).evalMap(message => f(message.value) <* message.ack)
 
-  final def mapK[G[_]](fK: [A] => F[A] => G[A]): Unimog[G] = new Unimog[G]:
-    override def publish(messages: NonEmptyList[Message]): G[Unit] = fK(self.publish(messages))
+  final def mapK[G[_]](fK: [A] => F[A] => G[A]): Unimog[G, A] = new Unimog[G, A]:
+    override def publish(messages: NonEmptyList[Message[A]]): G[Unit] = fK(self.publish(messages))
 
     override def subscribeAck(
         block: Int,
         stale: FiniteDuration
-    ): Stream[G, Acknowledgable[G, Message]] =
+    ): Stream[G, Acknowledgable[G, Message[A]]] =
       self.subscribeAck(block, stale).map(_.mapK(fK)).translate(FunctionK.lift[F, G](fK))

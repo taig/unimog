@@ -9,16 +9,16 @@ import skunk.codec.all.*
 import java.time.Instant
 import java.util.UUID
 
-final private[unimog] case class MessageSqlSchema(
+final private[unimog] case class MessageSqlSchema[A](
     created: Instant,
     identifier: UUID,
-    payload: String,
+    payload: A,
     pending: Option[Instant]
 ):
-  def toMessage: Message = Message(created, identifier, payload)
+  def toMessage: Message[A] = Message(created, identifier, payload)
 
 private[unimog] object MessageSqlSchema:
-  def apply(message: Message): MessageSqlSchema =
+  def apply[A](message: Message[A]): MessageSqlSchema[A] =
     MessageSqlSchema(
       created = message.created,
       identifier = message.identifier,
@@ -26,4 +26,4 @@ private[unimog] object MessageSqlSchema:
       pending = none
     )
 
-  val codec: Codec[MessageSqlSchema] = (instant *: uuid *: text *: instant.opt).to
+  def codec[A](payload: Codec[A]): Codec[MessageSqlSchema[A]] = (instant *: uuid *: payload *: instant.opt).to
