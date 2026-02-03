@@ -1,11 +1,11 @@
 package io.taig.unimog
 
-object Migrations:
-  def _1(schema: String): Migration = Migration(
+final class Migrations(schema: String):
+  val _1: Migration = Migration(
     name = "Initial",
     sql = s"""CREATE SCHEMA IF NOT EXISTS "$schema";
              |
-             |CREATE TABLE "message" (
+             |CREATE TABLE "$schema"."message" (
              |  "identifier" UUID PRIMARY KEY,
              |  "created" TIMESTAMPTZ NOT NULL,
              |  "payload" TEXT NOT NULL,
@@ -13,4 +13,4 @@ object Migrations:
              |);""".stripMargin
   )
 
-  def all(schema: String): List[Migration] = List(_1(schema))
+  val all: List[Migration] = List(_1)

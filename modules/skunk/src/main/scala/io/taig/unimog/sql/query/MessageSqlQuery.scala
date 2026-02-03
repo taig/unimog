@@ -13,12 +13,12 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.FiniteDuration
 
-private[unimog] object MessageSqlQuery:
+final private[unimog] class MessageSqlQuery(schema: String):
   def insert(schemas: NonEmptyList[MessageSqlSchema]): Command[Void] =
     val values = schemas.toList
 
     sql"""
-    INSERT INTO "message" ("created", "identifier", "payload", "pending")
+    INSERT INTO "#$schema"."message" ("created", "identifier", "payload", "pending")
     VALUES ${MessageSqlSchema.codec.values.list(values)};
     """.command.contramap(_ => values)
 
@@ -26,18 +26,18 @@ private[unimog] object MessageSqlQuery:
     sql"""
     WITH "result" AS (
       SELECT "created", "identifier", "payload", "pending"
-      FROM "message"
+      FROM "#$schema"."message"
       WHERE "pending" IS NULL OR "pending" + '#${stale.toString}'::INTERVAL < $instant
       ORDER BY "created" ASC
       FOR UPDATE SKIP LOCKED
       LIMIT #${String.valueOf(limit)}
     )
-    UPDATE "message"
+    UPDATE "#$schema"."message"
     SET "pending" = $instant
     FROM "result"
-    WHERE "message"."identifier" = "result"."identifier"
+    WHERE "#$schema"."message"."identifier" = "result"."identifier"
     RETURNING "result".*
     """.query(MessageSqlSchema.codec).contramap(instant => (instant, instant))
 
   val deleteByIdentifier: Command[UUID] =
-    sql"""DELETE FROM "message" WHERE "identifier" = $uuid;""".command
+    sql"""DELETE FROM "#$schema"."message" WHERE "identifier" = $uuid;""".command

@@ -11,9 +11,10 @@ import skunk.Session
 import java.util.UUID
 import scala.concurrent.duration.*
 
-final class SkunkTransactionalUnimog[F[_]: Temporal](poll: FiniteDuration) extends Unimog[Kleisli[F, Session[F], *]]:
+final class SkunkTransactionalUnimog[F[_]: Temporal](message: MessageSqlDao)(poll: FiniteDuration)
+    extends Unimog[Kleisli[F, Session[F], *]]:
   override def publish(messages: NonEmptyList[Message]): Kleisli[F, Session[F], Unit] =
-    Kleisli(MessageSqlDao.create(messages)(_).void)
+    Kleisli(message.create(messages)(_).void)
 
   override def subscribeAck(
       block: Int,
@@ -26,12 +27,12 @@ final class SkunkTransactionalUnimog[F[_]: Temporal](poll: FiniteDuration) exten
     .map(message => Acknowledgable(ack = ack(identifier = message.identifier), message))
 
   def ack(identifier: UUID): Kleisli[F, Session[F], Unit] =
-    Kleisli(MessageSqlDao.delete(identifier)(_).void)
+    Kleisli(message.delete(identifier)(_).void)
 
   def next(block: Int, stale: FiniteDuration): Kleisli[F, Session[F], List[Message]] = Kleisli: session =>
     realTimeInstant.flatMap: now =>
-      MessageSqlDao.list(limit = block, stale)(now)(session).compile.toList
+      message.list(limit = block, stale)(now)(session).compile.toList
 
 object SkunkTransactionalUnimog:
-  def apply[F[_]: Temporal](poll: FiniteDuration): Unimog[Kleisli[F, Session[F], *]] =
-    new SkunkTransactionalUnimog[F](poll)
+  def apply[F[_]: Temporal](poll: FiniteDuration, schema: String): Unimog[Kleisli[F, Session[F], *]] =
+    new SkunkTransactionalUnimog[F](message = MessageSqlDao(schema))(poll)

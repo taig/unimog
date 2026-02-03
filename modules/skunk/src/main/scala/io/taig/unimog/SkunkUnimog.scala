@@ -11,6 +11,7 @@ import scala.concurrent.duration.*
 object SkunkUnimog:
   @nowarn("msg=unused")
   def apply[F[_]: Temporal](sessions: Resource[F, Session[F]])(
-      poll: FiniteDuration
-  ): Unimog[F] = SkunkTransactionalUnimog[F](poll)
+      poll: FiniteDuration,
+      schema: String
+  ): Unimog[F] = SkunkTransactionalUnimog[F](poll, schema)
     .mapK([A] => (fa: Kleisli[F, Session[F], A]) => sessions.use(fa.run))
