@@ -10,35 +10,36 @@ import cats.effect.std.UUIDGen
 import cats.syntax.all.*
 import fs2.Stream
 
-import scala.concurrent.duration.FiniteDuration
+import java.time.Duration
 
 abstract class Unimog[F[_], A]:
   self =>
 
-  def publish(messages: NonEmptyList[Message[A]]): F[Unit]
+  def publish(messages: NonEmptyList[Message.Create[A]]): F[Unit]
 
-  final def publish(messages: List[Message[A]])(using F: Applicative[F]): F[Unit] =
+  final def publish(messages: List[Message.Create[A]])(using F: Applicative[F]): F[Unit] =
     NonEmptyList.fromList(messages).fold(F.unit)(publish)
 
-  final def publish1(message: Message[A])(using Applicative[F]): F[Unit] = publish(messages = List(message))
+  final def publish1(message: Message.Create[A])(using Applicative[F]): F[Unit] = publish(messages = List(message))
 
-  final def publish1(payload: A)(using Clock[F], UUIDGen[F])(using Monad[F]): F[Message[A]] = for
+  final def publish1(payload: A, lifespan: Duration = Duration.ofSeconds(30))(using
+      Clock[F],
+      Monad[F],
+      UUIDGen[F]
+  ): F[Message[A]] = for
     now <- realTimeInstant[F]
     identifier <- UUIDGen.randomUUID
-    message = Message(created = now, identifier, payload)
+    message = Message.Create(created = now, identifier, lifespan, payload)
     _ <- publish1(message)
-  yield message
+  yield message.toMessage(status = Message.Status.Pending)
 
-  def subscribeAck(block: Int, stale: FiniteDuration): Stream[F, Acknowledgable[F, Message[A]]]
+  def subscribeAck(chunk: Int): Stream[F, Acknowledgable[F, Message[A]]]
 
-  final def subscribe[B](block: Int, stale: FiniteDuration)(f: Message[A] => F[B])(using Apply[F]): Stream[F, B] =
-    subscribeAck(block, stale).evalMap(message => f(message.value) <* message.ack)
+  final def subscribe[B](chunk: Int)(f: Message[A] => F[B])(using Apply[F]): Stream[F, B] =
+    subscribeAck(chunk).evalMap(message => f(message.value) <* message.ack)
 
   final def mapK[G[_]](fK: [A] => F[A] => G[A]): Unimog[G, A] = new Unimog[G, A]:
-    override def publish(messages: NonEmptyList[Message[A]]): G[Unit] = fK(self.publish(messages))
+    override def publish(messages: NonEmptyList[Message.Create[A]]): G[Unit] = fK(self.publish(messages))
 
-    override def subscribeAck(
-        block: Int,
-        stale: FiniteDuration
-    ): Stream[G, Acknowledgable[G, Message[A]]] =
-      self.subscribeAck(block, stale).map(_.mapK(fK)).translate(FunctionK.lift[F, G](fK))
+    override def subscribeAck(chunk: Int): Stream[G, Acknowledgable[G, Message[A]]] =
+      self.subscribeAck(chunk).map(_.mapK(fK)).translate(FunctionK.lift[F, G](fK))

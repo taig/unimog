@@ -11,7 +11,6 @@ import skunk.syntax.all.*
 
 import java.time.Instant
 import java.util.UUID
-import scala.concurrent.duration.FiniteDuration
 import skunk.Codec
 
 final private[unimog] class MessageSqlQuery[A](payload: Codec[A], schema: String):
@@ -19,26 +18,30 @@ final private[unimog] class MessageSqlQuery[A](payload: Codec[A], schema: String
     val values = schemas.toList
 
     sql"""
-    INSERT INTO "#$schema"."message" ("created", "identifier", "payload", "pending")
+    INSERT INTO "#$schema"."message" ("completed", "created", "identifier", "lifespan", "payload", "started")
     VALUES ${MessageSqlSchema.codec(payload).values.list(values)};
     """.command.contramap(_ => values)
 
-  def select(limit: Int, stale: FiniteDuration): Query[Instant, MessageSqlSchema[A]] =
+  def select(limit: Int): Query[Instant, MessageSqlSchema[A]] =
     sql"""
     WITH "result" AS (
-      SELECT "created", "identifier", "payload", "pending"
+      SELECT "completed", "created", "identifier", "lifespan", "payload", "started"
       FROM "#$schema"."message"
-      WHERE "pending" IS NULL OR "pending" + '#${stale.toString}'::INTERVAL < $instant
+      WHERE "started" IS NULL OR "expiration" < $instant
       ORDER BY "created" ASC
       FOR UPDATE SKIP LOCKED
       LIMIT #${String.valueOf(limit)}
     )
     UPDATE "#$schema"."message"
-    SET "pending" = $instant
+    SET "started" = $instant
     FROM "result"
     WHERE "#$schema"."message"."identifier" = "result"."identifier"
     RETURNING "result".*
     """.query(MessageSqlSchema.codec(payload)).contramap(instant => (instant, instant))
 
-  val deleteByIdentifier: Command[UUID] =
-    sql"""DELETE FROM "#$schema"."message" WHERE "identifier" = $uuid;""".command
+  val updateCompletedByIdentifier: Command[(Instant, UUID)] =
+    sql"""
+    UPDATE "#$schema"."message"
+    SET "completed" = $instant
+    WHERE "identifier" = $uuid;
+    """.command

@@ -14,25 +14,23 @@ import skunk.Codec
 
 final class SkunkTransactionalUnimog[F[_]: Temporal, A](message: MessageSqlDao[F, A])(poll: FiniteDuration)
     extends Unimog[Kleisli[F, Session[F], *], A]:
-  override def publish(messages: NonEmptyList[Message[A]]): Kleisli[F, Session[F], Unit] =
+  override def publish(messages: NonEmptyList[Message.Create[A]]): Kleisli[F, Session[F], Unit] =
     Kleisli(message.create(messages)(_).void)
 
   override def subscribeAck(
-      block: Int,
-      stale: FiniteDuration
+      chunk: Int
   ): Stream[Kleisli[F, Session[F], *], Acknowledgable[Kleisli[F, Session[F], *], Message[A]]] = Stream
-    .repeatEval(next(block, stale))
+    .repeatEval(next(chunk))
     .flatMap:
       case Nil      => Stream.sleep_[Kleisli[F, Session[F], *]](poll)
       case messages => Stream.emits(messages)
     .map(message => Acknowledgable(ack = ack(identifier = message.identifier), message))
 
-  def ack(identifier: UUID): Kleisli[F, Session[F], Unit] =
-    Kleisli(message.delete(identifier)(_).void)
+  def ack(identifier: UUID): Kleisli[F, Session[F], Unit] = Kleisli: session =>
+    realTimeInstant.flatMap(message.update(identifier, _)(session).void)
 
-  def next(block: Int, stale: FiniteDuration): Kleisli[F, Session[F], List[Message[A]]] = Kleisli: session =>
-    realTimeInstant.flatMap: now =>
-      message.list(limit = block, stale)(now)(session).compile.toList
+  def next(chunk: Int): Kleisli[F, Session[F], List[Message[A]]] = Kleisli: session =>
+    realTimeInstant.flatMap(now => message.list(limit = chunk)(now)(session).compile.toList)
 
 object SkunkTransactionalUnimog:
   def apply[F[_]: Temporal, A](
